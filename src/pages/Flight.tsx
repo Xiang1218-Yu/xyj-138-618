@@ -1,15 +1,31 @@
+/**
+ * 飞行场景页面
+ * 职责：组合飞行模拟器画布与各类控制面板
+ * - FlightSimulator: 主画布，负责 3D 飞行渲染
+ * - 左侧面板: 飞行器状态信息（高度、速度、燃料）
+ * - 右侧面板: 环境自定义设置（时间、云层、山脉）
+ * - 底部提示: 操作指引
+ */
+
 import React from 'react';
 import { FlightSimulator } from '@/components/canvas/FlightSimulator';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
+import { EnvironmentControls } from '@/components/flight/EnvironmentControls';
 import { useAppStore } from '@/store/useAppStore';
+import { getTimeOfDayInfo } from '@/components/flight/skyRenderer';
 import { Plane, RotateCcw, Info, Fuel, Gauge, Mountain } from 'lucide-react';
 
+/**
+ * 飞行场景主页面组件
+ */
 const Flight: React.FC = () => {
   const {
-    flight: { aircraft },
+    flight: { aircraft, environment },
     resetFlight,
   } = useAppStore();
+
+  const timeInfo = getTimeOfDayInfo(environment.timeOfDay);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -29,7 +45,7 @@ const Flight: React.FC = () => {
                 飞行器驾驶
               </h2>
               <p className="text-white/50 text-xs">
-                高度 {Math.round(aircraft.altitude)}m · 速度 {Math.round(aircraft.speed * 10)}km/h
+                {timeInfo.label} · 高度 {Math.round(aircraft.altitude)}m · 速度 {Math.round(aircraft.speed * 10)}km/h
               </p>
             </div>
           </div>
@@ -79,6 +95,17 @@ const Flight: React.FC = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-white/5 rounded-lg p-2">
+                <div className="text-white/50 mb-0.5">云层密度</div>
+                <div className="text-white font-medium">{environment.cloudDensity}%</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <div className="text-white/50 mb-0.5">山脉高度</div>
+                <div className="text-white font-medium">{environment.mountainHeight}%</div>
+              </div>
+            </div>
+
             <Button
               variant="primary"
               onClick={resetFlight}
@@ -94,6 +121,10 @@ const Flight: React.FC = () => {
       </div>
 
       <div className="absolute top-24 right-6 z-20">
+        <EnvironmentControls />
+      </div>
+
+      <div className="absolute bottom-24 right-6 z-20">
         <GlassCard className="p-4 w-64">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
@@ -103,8 +134,8 @@ const Flight: React.FC = () => {
               </p>
               <p>• 移动鼠标控制方向</p>
               <p>• 按住左键加速起飞</p>
-              <p>• 松开减速，自动回油</p>
-              <p>• 燃料耗尽需等待恢复</p>
+              <p>• 右侧面板自定义环境</p>
+              <p>• 拖动滑块切换时间</p>
             </div>
           </div>
         </GlassCard>

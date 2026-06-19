@@ -1,10 +1,38 @@
+/**
+ * 飞行模拟器主画布组件
+ * 职责：
+ * - 管理 Canvas 渲染循环
+ * - 协调各渲染模块（天空、云层、山脉、飞行器、粒子、HUD）
+ * - 处理用户输入（鼠标/触摸控制飞行器）
+ * - 响应环境设置变化
+ *
+ * 设计原则：单一职责
+ * - 天空渲染 -> skyRenderer
+ * - 云层渲染 -> cloudRenderer
+ * - 山脉渲染 -> mountainRenderer
+ * - 飞行器/粒子/HUD 渲染在本组件内
+ */
+
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useCanvas } from '@/hooks/useCanvas';
 import { useAnimationFrame } from '@/hooks/useAnimationFrame';
 import { useAppStore } from '@/store/useAppStore';
-import { Cloud, Mountain, ThrustParticle } from '@/types/flight';
+import { Cloud, Mountain, ThrustParticle, Aircraft } from '@/types/flight';
 import { generateId, randomRange, lerp, lerpAngle, clamp } from '@/utils/math';
-import { createGradient, withAlpha, lightenColor, darkenColor } from '@/utils/colors';
+import { createGradient, withAlpha, lightenColor } from '@/utils/colors';
+import { renderSky, getInterpolatedSkyPalette, getTimeOfDayInfo } from '@/components/flight/skyRenderer';
+import {
+  initializeClouds,
+  adjustCloudDensity,
+  updateClouds,
+  renderClouds,
+} from '@/components/flight/cloudRenderer';
+import {
+  initializeMountains,
+  adjustMountainHeight,
+  updateMountains,
+  renderMountains,
+} from '@/components/flight/mountainRenderer';
 
 interface FlightSimulatorProps {
   onMouseEnter?: () => void;
@@ -17,56 +45,36 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
 }) => {
   const { canvasRef, getContext, width, height, clear } = useCanvas();
   const {
-    flight: { aircraft, thrustParticles, isMouseDown },
+    flight: { aircraft, thrustParticles, environment },
     updateAircraft,
     addThrustParticle,
-    resetFlight,
     setCursorType,
   } = useAppStore();
 
   const mouseRef = useRef({ x: 0, y: 0, isDown: false });
-  const aircraftRef = useRef(aircraft);
+  const aircraftRef = useRef<Aircraft>(aircraft);
   const cloudsRef = useRef<Cloud[]>([]);
   const mountainsRef = useRef<Mountain[]>([]);
   const timeRef = useRef(0);
   const initializedRef = useRef(false);
   const speedLinesRef = useRef<{ x: number; y: number; length: number; opacity: number }[]>([]);
+  const prevCloudDensityRef = useRef(environment.cloudDensity);
+  const prevMountainHeightRef = useRef(environment.mountainHeight);
 
   useEffect(() => {
     aircraftRef.current = aircraft;
   }, [aircraft]);
 
+  /**
+   * 初始化场景元素（云朵、山脉、速度线等）
+   */
   const initializeScene = useCallback(
     (w: number, h: number) => {
       if (initializedRef.current) return;
       initializedRef.current = true;
 
-      const initialClouds: Cloud[] = [];
-      for (let i = 0; i < 12; i++) {
-        initialClouds.push({
-          x: randomRange(-100, w + 100),
-          y: randomRange(50, h * 0.6),
-          width: randomRange(80, 300),
-          height: randomRange(30, 90),
-          speed: randomRange(15, 40),
-          opacity: randomRange(0.25, 0.7),
-          puffCount: Math.floor(randomRange(3, 7)),
-          layer: Math.floor(randomRange(0, 3)),
-        });
-      }
-      cloudsRef.current = initialClouds;
-
-      const initialMountains: Mountain[] = [];
-      for (let i = 0; i < 6; i++) {
-        initialMountains.push({
-          x: (i / 6) * w * 1.8,
-          height: randomRange(h * 0.25, h * 0.55),
-          width: randomRange(w * 0.35, w * 0.9),
-          color: `hsl(${225 + i * 4}, 25%, ${12 + i * 4}%)`,
-          parallaxSpeed: 15 + i * 12,
-        });
-      }
-      mountainsRef.current = initialMountains;
+      cloudsRef.current = initializeClouds(w, h, environment.cloudDensity);
+      mountainsRef.current = initializeMountains(w, h, environment.mountainHeight);
 
       const speedLines = [];
       for (let i = 0; i < 20; i++) {
@@ -87,7 +95,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
         fuel: 100,
       });
     },
-    [updateAircraft]
+    [updateAircraft, environment.cloudDensity, environment.mountainHeight]
   );
 
   useEffect(() => {
@@ -96,199 +104,51 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     }
   }, [width, height, initializeScene]);
 
-  const drawSky = (
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    time: number
-  ) => {
-    const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, '#0d1033');
-    gradient.addColorStop(0.25, '#1a1f4d');
-    gradient.addColorStop(0.5, '#252d6b');
-    gradient.addColorStop(0.75, '#3d3280');
-    gradient.addColorStop(1, '#5c3d8e');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, w, h);
-
-    const sunGradient = ctx.createRadialGradient(
-      w * 0.85,
-      h * 0.12,
-      0,
-      w * 0.85,
-      h * 0.12,
-      w * 0.6
-    );
-    sunGradient.addColorStop(0, 'rgba(255, 200, 150, 0.35)');
-    sunGradient.addColorStop(0.25, 'rgba(255, 150, 100, 0.15)');
-    sunGradient.addColorStop(0.5, 'rgba(255, 100, 150, 0.05)');
-    sunGradient.addColorStop(1, 'transparent');
-    ctx.fillStyle = sunGradient;
-    ctx.fillRect(0, 0, w, h);
-
-    const stars = 80;
-    for (let i = 0; i < stars; i++) {
-      const sx = (i * 137.5) % w;
-      const sy = (i * 73.7) % (h * 0.35);
-      const twinkle = 0.5 + 0.5 * Math.sin(time * 0.0015 + i * 0.7);
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.25 + twinkle * 0.55})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 0.5 + twinkle * 0.8, 0, Math.PI * 2);
-      ctx.fill();
+  /**
+   * 响应云层密度变化：动态调整云朵数量
+   */
+  useEffect(() => {
+    if (
+      width > 0 &&
+      height > 0 &&
+      Math.abs(environment.cloudDensity - prevCloudDensityRef.current) > 1
+    ) {
+      cloudsRef.current = adjustCloudDensity(
+        cloudsRef.current,
+        width,
+        height,
+        environment.cloudDensity
+      );
+      prevCloudDensityRef.current = environment.cloudDensity;
     }
-  };
+  }, [environment.cloudDensity, width, height]);
 
-  const drawMountains = (
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    offset: number
-  ) => {
-    for (let i = mountainsRef.current.length - 1; i >= 0; i--) {
-      const m = mountainsRef.current[i];
-      const x = (m.x - offset * m.parallaxSpeed * 0.01) % (w * 2);
-      const adjustedX = x < -m.width ? x + w * 2 : x;
-
-      ctx.save();
-
-      const mtnGradient = ctx.createLinearGradient(
-        adjustedX + m.width * 0.3,
-        h - m.height,
-        adjustedX + m.width * 0.5,
-        h
+  /**
+   * 响应山脉高度变化：动态调整山脉高度
+   */
+  useEffect(() => {
+    if (
+      width > 0 &&
+      height > 0 &&
+      Math.abs(environment.mountainHeight - prevMountainHeightRef.current) > 1
+    ) {
+      mountainsRef.current = adjustMountainHeight(
+        mountainsRef.current,
+        environment.mountainHeight,
+        height
       );
-      mtnGradient.addColorStop(0, lightenColor(m.color, 10));
-      mtnGradient.addColorStop(0.4, m.color);
-      mtnGradient.addColorStop(1, darkenColor(m.color, 20));
-
-      ctx.beginPath();
-      ctx.moveTo(adjustedX, h);
-      ctx.lineTo(adjustedX + m.width * 0.25, h - m.height * 0.5);
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.45,
-        h - m.height,
-        adjustedX + m.width * 0.55,
-        h - m.height * 0.95
-      );
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.7,
-        h - m.height * 0.7,
-        adjustedX + m.width * 0.85,
-        h - m.height * 0.4
-      );
-      ctx.lineTo(adjustedX + m.width, h);
-      ctx.closePath();
-
-      ctx.fillStyle = mtnGradient;
-      ctx.fill();
-
-      const snowY = h - m.height * 0.85;
-      ctx.beginPath();
-      ctx.moveTo(adjustedX + m.width * 0.42, snowY + m.height * 0.1);
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.5,
-        h - m.height,
-        adjustedX + m.width * 0.58,
-        snowY + m.height * 0.08
-      );
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.52,
-        snowY + m.height * 0.05,
-        adjustedX + m.width * 0.42,
-        snowY + m.height * 0.1
-      );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.fill();
-
-      ctx.restore();
+      prevMountainHeightRef.current = environment.mountainHeight;
     }
-  };
+  }, [environment.mountainHeight, width, height]);
 
-  const drawCloud = (ctx: CanvasRenderingContext2D, cloud: Cloud) => {
-    ctx.save();
-    ctx.globalAlpha = cloud.opacity;
-
-    const baseGradient = ctx.createRadialGradient(
-      cloud.x,
-      cloud.y + cloud.height * 0.2,
-      0,
-      cloud.x,
-      cloud.y + cloud.height * 0.2,
-      cloud.width * 0.55
-    );
-    baseGradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    baseGradient.addColorStop(0.35, 'rgba(230, 230, 255, 0.75)');
-    baseGradient.addColorStop(0.7, 'rgba(200, 200, 255, 0.35)');
-    baseGradient.addColorStop(1, 'transparent');
-
-    ctx.fillStyle = baseGradient;
-    ctx.beginPath();
-    ctx.ellipse(
-      cloud.x,
-      cloud.y + cloud.height * 0.3,
-      cloud.width * 0.5,
-      cloud.height * 0.5,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-
-    for (let i = 0; i < cloud.puffCount; i++) {
-      const angle = (i / cloud.puffCount) * Math.PI * 1.6 - Math.PI * 0.8;
-      const dist = cloud.width * 0.22 + Math.sin(i * 1.3) * cloud.width * 0.08;
-      const px = cloud.x + Math.cos(angle) * dist;
-      const py = cloud.y + Math.sin(angle) * dist * 0.45;
-      const size = cloud.height * (0.45 + Math.sin(i * 1.8 + 0.5) * 0.3);
-
-      const puffGradient = ctx.createRadialGradient(
-        px,
-        py - size * 0.2,
-        0,
-        px,
-        py,
-        size
-      );
-      puffGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      puffGradient.addColorStop(0.5, 'rgba(240, 240, 255, 0.7)');
-      puffGradient.addColorStop(1, 'transparent');
-
-      ctx.fillStyle = puffGradient;
-      ctx.beginPath();
-      ctx.arc(px, py, size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    const bottomGradient = ctx.createLinearGradient(
-      cloud.x,
-      cloud.y,
-      cloud.x,
-      cloud.y + cloud.height * 0.8
-    );
-    bottomGradient.addColorStop(0, 'transparent');
-    bottomGradient.addColorStop(0.6, 'rgba(180, 180, 220, 0.15)');
-    bottomGradient.addColorStop(1, 'rgba(150, 150, 200, 0.25)');
-
-    ctx.fillStyle = bottomGradient;
-    ctx.beginPath();
-    ctx.ellipse(
-      cloud.x,
-      cloud.y + cloud.height * 0.4,
-      cloud.width * 0.45,
-      cloud.height * 0.35,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-
-    ctx.restore();
-  };
-
+  /**
+   * 绘制速度线（高速飞行时的视觉效果）
+   */
   const drawSpeedLines = (
     ctx: CanvasRenderingContext2D,
-    ac: typeof aircraft,
-    time: number
+    ac: Aircraft,
+    time: number,
+    ambientLight: number
   ) => {
     const speedRatio = ac.speed / ac.maxSpeed;
     if (speedRatio < 0.2) return;
@@ -296,8 +156,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     const lineCount = Math.floor(speedRatio * 15);
 
     for (let i = 0; i < lineCount && i < speedLinesRef.current.length; i++) {
-      const line = speedLinesRef.current[i];
-      const opacity = speedRatio * 0.6 * (0.5 + 0.5 * Math.sin(time * 0.01 + i));
+      const opacity = speedRatio * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.01 + i));
 
       const angle = ac.angle + (Math.random() - 0.5) * 0.5;
       const startDist = 60 + Math.random() * 100;
@@ -321,9 +180,12 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     }
   };
 
+  /**
+   * 绘制飞行器
+   */
   const drawAircraft = (
     ctx: CanvasRenderingContext2D,
-    ac: typeof aircraft,
+    ac: Aircraft,
     time: number
   ) => {
     ctx.save();
@@ -425,26 +287,6 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     ctx.closePath();
     ctx.fill();
 
-    const wingEdgeGradient = ctx.createLinearGradient(0, -wingSpan * 0.7, 0, -wingSpan * 0.9);
-    wingEdgeGradient.addColorStop(0, '#a29bfe');
-    wingEdgeGradient.addColorStop(1, '#6c5ce7');
-
-    ctx.fillStyle = wingEdgeGradient;
-    ctx.beginPath();
-    ctx.moveTo(-bodyLength * 0.15, -wingSpan * 0.65);
-    ctx.quadraticCurveTo(-bodyLength * wingSweep, -wingSpan * 0.75, -bodyLength * (wingSweep + 0.05), -wingSpan * 0.85);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(162, 155, 254, 0.6)';
-    ctx.stroke();
-
-    ctx.fillStyle = wingEdgeGradient;
-    ctx.beginPath();
-    ctx.moveTo(-bodyLength * 0.15, wingSpan * 0.65);
-    ctx.quadraticCurveTo(-bodyLength * wingSweep, wingSpan * 0.75, -bodyLength * (wingSweep + 0.05), wingSpan * 0.85);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(162, 155, 254, 0.6)';
-    ctx.stroke();
-
     const tailGradient = ctx.createLinearGradient(-bodyLength * 0.45, -bodyHeight * 0.3, -bodyLength * 0.5, bodyHeight * 0.3);
     tailGradient.addColorStop(0, '#ff7eb3');
     tailGradient.addColorStop(0.5, '#fd79a8');
@@ -457,14 +299,6 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     ctx.lineTo(-bodyLength * 0.42, -bodyHeight * 0.1);
     ctx.lineTo(-bodyLength * 0.55, bodyHeight * 0.95);
     ctx.lineTo(-bodyLength * 0.35, bodyHeight * 0.3);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.beginPath();
-    ctx.moveTo(-bodyLength * 0.38, -bodyHeight * 0.25);
-    ctx.lineTo(-bodyLength * 0.52, -bodyHeight * 0.85);
-    ctx.lineTo(-bodyLength * 0.43, -bodyHeight * 0.15);
     ctx.closePath();
     ctx.fill();
 
@@ -554,18 +388,6 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
       );
       ctx.closePath();
       ctx.fill();
-
-      for (let i = 0; i < 5; i++) {
-        const sparkDist = flameLength * (0.3 + Math.random() * 0.7);
-        const sparkY = (Math.random() - 0.5) * bodyHeight * 0.6;
-        const sparkSize = 2 + Math.random() * 4;
-        const sparkBrightness = 0.5 + Math.random() * 0.5;
-
-        ctx.fillStyle = `rgba(255, ${180 + Math.random() * 75}, ${50 + Math.random() * 50}, ${sparkBrightness})`;
-        ctx.beginPath();
-        ctx.arc(-bodyLength * 0.48 - sparkDist, sparkY, sparkSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
 
     const landingLightGradient = ctx.createRadialGradient(
@@ -597,6 +419,9 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     ctx.restore();
   };
 
+  /**
+   * 绘制推进器粒子
+   */
   const drawThrustParticle = (
     ctx: CanvasRenderingContext2D,
     p: ThrustParticle
@@ -615,10 +440,14 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     ctx.fill();
   };
 
+  /**
+   * 绘制 HUD 仪表盘
+   */
   const drawHUD = (
     ctx: CanvasRenderingContext2D,
     w: number,
-    ac: typeof aircraft
+    ac: Aircraft,
+    timeLabel: string
   ) => {
     const padding = 20;
     const barWidth = 150;
@@ -728,13 +557,16 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     ctx.font = '500 13px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(
-      `高度 ${Math.round(ac.altitude)}m · 速度 ${Math.round(ac.speed * 10)}km/h`,
+      `${timeLabel} · 高度 ${Math.round(ac.altitude)}m · 速度 ${Math.round(ac.speed * 10)}km/h`,
       w / 2,
       padding + 25
     );
     ctx.textAlign = 'left';
   };
 
+  /**
+   * 主渲染循环
+   */
   const render = useCallback(
     (deltaTime: number, timestamp: number) => {
       const ctx = getContext();
@@ -744,24 +576,23 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
 
       clear();
 
-      drawSky(ctx, width, height, timestamp);
-      drawMountains(ctx, width, height, timestamp);
+      const skyPalette = getInterpolatedSkyPalette(environment.timeOfDay);
+      const currentTimeLabel = getTimeOfDayInfo(environment.timeOfDay).label;
 
-      const sortedClouds = [...cloudsRef.current].sort((a, b) => a.y - b.y);
+      renderSky(ctx, width, height, environment.timeOfDay, timestamp);
 
-      for (let i = sortedClouds.length - 1; i >= 0; i--) {
-        const cloud = sortedClouds[i];
-        cloud.x -= cloud.speed * deltaTime;
-        if (cloud.x < -cloud.width) {
-          cloud.x = width + randomRange(0, 300);
-          cloud.y = randomRange(50, height * 0.6);
-          cloud.width = randomRange(80, 300);
-          cloud.height = randomRange(30, 90);
-          cloud.speed = randomRange(15, 40);
-          cloud.opacity = randomRange(0.25, 0.7);
-        }
-        drawCloud(ctx, cloud);
-      }
+      updateMountains(mountainsRef.current, timestamp * 0.01, width);
+      renderMountains(
+        ctx,
+        width,
+        height,
+        mountainsRef.current,
+        skyPalette.ambientLight,
+        environment.timeOfDay
+      );
+
+      updateClouds(cloudsRef.current, deltaTime, width, height);
+      renderClouds(ctx, cloudsRef.current, skyPalette.ambientLight);
 
       const ac = { ...aircraftRef.current };
 
@@ -824,7 +655,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
       ac.altitude = (height - ac.y) / (height * 0.01);
       ac.speed = ac.speed / 60;
 
-      drawSpeedLines(ctx, ac, timestamp);
+      drawSpeedLines(ctx, ac, timestamp, skyPalette.ambientLight);
 
       for (let i = thrustParticles.length - 1; i >= 0; i--) {
         const p = thrustParticles[i];
@@ -843,7 +674,8 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
       }
 
       drawAircraft(ctx, ac, timestamp);
-      drawHUD(ctx, width, ac);
+
+      drawHUD(ctx, width, ac, currentTimeLabel);
 
       updateAircraft({
         x: ac.x,
@@ -865,6 +697,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
       thrustParticles,
       addThrustParticle,
       updateAircraft,
+      environment,
     ]
   );
 

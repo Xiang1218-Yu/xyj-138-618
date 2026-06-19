@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Flower, Particle, StarParticle, Stem } from '../types/flower';
-import { Aircraft, Cloud, Mountain, ThrustParticle } from '../types/flight';
+import { Aircraft, Cloud, Mountain, ThrustParticle, EnvironmentSettings } from '../types/flight';
 import { FluidParticle, FluidState, defaultFluidState } from '../types/fluid';
 import {
   KaleidoscopeState,
@@ -80,6 +80,7 @@ interface AppState {
   updateAircraft: (updates: Partial<Aircraft>) => void;
   setIsMouseDown: (value: boolean) => void;
   addThrustParticle: (particle: ThrustParticle) => void;
+  setFlightEnvironment: (settings: Partial<EnvironmentSettings>) => void;
   resetFlight: () => void;
 
   addFluidParticle: (particle: FluidParticle) => void;
@@ -180,6 +181,18 @@ const initialAircraft: Aircraft = {
   isThrusting: false,
 };
 
+/**
+ * 默认环境设置
+ * cloudDensity: 50 (中等云层密度)
+ * mountainHeight: 50 (中等山脉高度)
+ * timeOfDay: 25 (正午)
+ */
+const defaultEnvironment: EnvironmentSettings = {
+  cloudDensity: 50,
+  mountainHeight: 50,
+  timeOfDay: 25,
+};
+
 export const useAppStore = create<AppState>((set) => ({
   isTransitioning: false,
   mouseX: 0,
@@ -203,6 +216,7 @@ export const useAppStore = create<AppState>((set) => ({
     clouds: [],
     mountains: [],
     thrustParticles: [],
+    environment: { ...defaultEnvironment },
     isMouseDown: false,
   },
 
@@ -340,12 +354,25 @@ export const useAppStore = create<AppState>((set) => ({
       },
     })),
 
+  /**
+   * 更新飞行场景环境设置
+   * 支持部分更新：可以只修改云层密度、山脉高度或时间中的任意一项
+   */
+  setFlightEnvironment: (settings) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, ...settings },
+      },
+    })),
+
   resetFlight: () =>
     set((state) => ({
       flight: {
         ...state.flight,
         aircraft: { ...initialAircraft },
         thrustParticles: [],
+        environment: { ...defaultEnvironment },
       },
     })),
 
