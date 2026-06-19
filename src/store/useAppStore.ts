@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Flower, Particle, StarParticle, Stem } from '../types/flower';
-import { Aircraft, Cloud, Mountain, ThrustParticle } from '../types/flight';
+import { Aircraft, Cloud, Mountain, ThrustParticle, EnvironmentConfig, TimeOfDay } from '../types/flight';
 import { FluidParticle, FluidState, defaultFluidState } from '../types/fluid';
 import {
   KaleidoscopeState,
@@ -51,6 +51,7 @@ interface AppState {
     mountains: Mountain[];
     thrustParticles: ThrustParticle[];
     isMouseDown: boolean;
+    environment: EnvironmentConfig;
   };
 
   fluid: FluidState;
@@ -77,10 +78,14 @@ interface AppState {
   updateStem: (id: string, updates: Partial<Stem>) => void;
   clearStems: () => void;
 
-  updateAircraft: (updates: Partial<Aircraft>) => void;
-  setIsMouseDown: (value: boolean) => void;
-  addThrustParticle: (particle: ThrustParticle) => void;
-  resetFlight: () => void;
+  updateAircraft: (updates: Partial&lt;Aircraft&gt;) =&gt; void;
+  setIsMouseDown: (value: boolean) =&gt; void;
+  addThrustParticle: (particle: ThrustParticle) =&gt; void;
+  setCloudDensity: (density: number) =&gt; void;
+  setMountainHeight: (height: number) =&gt; void;
+  setTimeValue: (value: number) =&gt; void;
+  setTimeOfDay: (timeOfDay: TimeOfDay) =&gt; void;
+  resetFlight: () =&gt; void;
 
   addFluidParticle: (particle: FluidParticle) => void;
   updateFluidParticle: (id: string, updates: Partial<FluidParticle>) => void;
@@ -180,6 +185,13 @@ const initialAircraft: Aircraft = {
   isThrusting: false,
 };
 
+const initialEnvironment: EnvironmentConfig = {
+  cloudDensity: 50,
+  mountainHeight: 50,
+  timeValue: 87.5,
+  timeOfDay: TimeOfDay.Night,
+};
+
 export const useAppStore = create<AppState>((set) => ({
   isTransitioning: false,
   mouseX: 0,
@@ -204,6 +216,7 @@ export const useAppStore = create<AppState>((set) => ({
     mountains: [],
     thrustParticles: [],
     isMouseDown: false,
+    environment: initialEnvironment,
   },
 
   fluid: { ...defaultFluidState },
@@ -332,20 +345,69 @@ export const useAppStore = create<AppState>((set) => ({
       flight: { ...state.flight, isMouseDown: value },
     })),
 
-  addThrustParticle: (particle) =>
-    set((state) => ({
+  addThrustParticle: (particle) =&gt;
+    set((state) =&gt; ({
       flight: {
         ...state.flight,
         thrustParticles: [...state.flight.thrustParticles, particle].slice(-150),
       },
     })),
 
-  resetFlight: () =>
-    set((state) => ({
+  setCloudDensity: (density) =&gt;
+    set((state) =&gt; ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, cloudDensity: Math.max(0, Math.min(100, density)) },
+      },
+    })),
+
+  setMountainHeight: (height) =&gt;
+    set((state) =&gt; ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, mountainHeight: Math.max(0, Math.min(100, height)) },
+      },
+    })),
+
+  setTimeValue: (value) =&gt;
+    set((state) =&gt; {
+      const clampedValue = Math.max(0, Math.min(100, value));
+      let timeOfDay = state.flight.environment.timeOfDay;
+      if (clampedValue &lt; 25) timeOfDay = TimeOfDay.Sunrise;
+      else if (clampedValue &lt; 50) timeOfDay = TimeOfDay.Noon;
+      else if (clampedValue &lt; 75) timeOfDay = TimeOfDay.Sunset;
+      else timeOfDay = TimeOfDay.Night;
+      return {
+        flight: {
+          ...state.flight,
+          environment: { ...state.flight.environment, timeValue: clampedValue, timeOfDay },
+        },
+      };
+    }),
+
+  setTimeOfDay: (timeOfDay) =&gt;
+    set((state) =&gt; {
+      const timeValueMap: Record&lt;TimeOfDay, number&gt; = {
+        [TimeOfDay.Sunrise]: 12.5,
+        [TimeOfDay.Noon]: 37.5,
+        [TimeOfDay.Sunset]: 62.5,
+        [TimeOfDay.Night]: 87.5,
+      };
+      return {
+        flight: {
+          ...state.flight,
+          environment: { ...state.flight.environment, timeOfDay, timeValue: timeValueMap[timeOfDay] },
+        },
+      };
+    }),
+
+  resetFlight: () =&gt;
+    set((state) =&gt; ({
       flight: {
         ...state.flight,
         aircraft: { ...initialAircraft },
         thrustParticles: [],
+        environment: { ...initialEnvironment },
       },
     })),
 
