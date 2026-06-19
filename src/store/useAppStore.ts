@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Flower, Particle, StarParticle, Stem } from '../types/flower';
-import { Aircraft, Cloud, Mountain, ThrustParticle } from '../types/flight';
+import { Aircraft, Cloud, Mountain, ThrustParticle, FlightEnvironment } from '../types/flight';
 import { FluidParticle, FluidState, defaultFluidState } from '../types/fluid';
 import {
   KaleidoscopeState,
@@ -51,6 +51,7 @@ interface AppState {
     mountains: Mountain[];
     thrustParticles: ThrustParticle[];
     isMouseDown: boolean;
+    environment: FlightEnvironment;
   };
 
   fluid: FluidState;
@@ -81,6 +82,12 @@ interface AppState {
   setIsMouseDown: (value: boolean) => void;
   addThrustParticle: (particle: ThrustParticle) => void;
   resetFlight: () => void;
+  // 飞行场景环境自定义相关 setter
+  setFlightEnvironment: (updates: Partial<FlightEnvironment>) => void;
+  setFlightCloudDensity: (value: number) => void;
+  setFlightMountainHeight: (value: number) => void;
+  setFlightTimeOfDay: (value: number) => void;
+  resetFlightEnvironment: () => void;
 
   addFluidParticle: (particle: FluidParticle) => void;
   updateFluidParticle: (id: string, updates: Partial<FluidParticle>) => void;
@@ -180,6 +187,18 @@ const initialAircraft: Aircraft = {
   isThrusting: false,
 };
 
+/**
+ * 飞行场景环境默认值。
+ * - cloudDensity: 0.5（中等云层）
+ * - mountainHeight: 1（原始随机高度）
+ * - timeOfDay: 0.25（正午，画面最明亮）
+ */
+const initialFlightEnvironment: FlightEnvironment = {
+  cloudDensity: 0.5,
+  mountainHeight: 1,
+  timeOfDay: 0.25,
+};
+
 export const useAppStore = create<AppState>((set) => ({
   isTransitioning: false,
   mouseX: 0,
@@ -204,6 +223,7 @@ export const useAppStore = create<AppState>((set) => ({
     mountains: [],
     thrustParticles: [],
     isMouseDown: false,
+    environment: { ...initialFlightEnvironment },
   },
 
   fluid: { ...defaultFluidState },
@@ -346,6 +366,47 @@ export const useAppStore = create<AppState>((set) => ({
         ...state.flight,
         aircraft: { ...initialAircraft },
         thrustParticles: [],
+      },
+    })),
+
+  // ---- 飞行场景环境自定义 ----
+  setFlightEnvironment: (updates) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, ...updates },
+      },
+    })),
+
+  setFlightCloudDensity: (value) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, cloudDensity: value },
+      },
+    })),
+
+  setFlightMountainHeight: (value) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, mountainHeight: value },
+      },
+    })),
+
+  setFlightTimeOfDay: (value) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, timeOfDay: value },
+      },
+    })),
+
+  resetFlightEnvironment: () =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...initialFlightEnvironment },
       },
     })),
 

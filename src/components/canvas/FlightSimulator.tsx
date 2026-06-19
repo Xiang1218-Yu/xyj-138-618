@@ -4,7 +4,17 @@ import { useAnimationFrame } from '@/hooks/useAnimationFrame';
 import { useAppStore } from '@/store/useAppStore';
 import { Cloud, Mountain, ThrustParticle } from '@/types/flight';
 import { generateId, randomRange, lerp, lerpAngle, clamp } from '@/utils/math';
-import { createGradient, withAlpha, lightenColor, darkenColor } from '@/utils/colors';
+import { createGradient, withAlpha, lightenColor } from '@/utils/colors';
+// 环境渲染模块（单一职责拆分）
+import { getPaletteForTime } from './flight/timeOfDay';
+import { drawSky, drawAmbientOverlay } from './flight/SkyRenderer';
+import { drawMountains } from './flight/MountainRenderer';
+import {
+  initClouds,
+  syncCloudDensity,
+  updateClouds,
+  drawClouds,
+} from './flight/CloudRenderer';
 
 interface FlightSimulatorProps {
   onMouseEnter?: () => void;
@@ -17,10 +27,9 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
 }) => {
   const { canvasRef, getContext, width, height, clear } = useCanvas();
   const {
-    flight: { aircraft, thrustParticles, isMouseDown },
+    flight: { aircraft, thrustParticles, environment },
     updateAircraft,
     addThrustParticle,
-    resetFlight,
     setCursorType,
   } = useAppStore();
 
@@ -31,31 +40,30 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
   const timeRef = useRef(0);
   const initializedRef = useRef(false);
   const speedLinesRef = useRef<{ x: number; y: number; length: number; opacity: number }[]>([]);
+  // 通过 ref 持有最新 environment，避免在动画回调中触发重渲
+  const environmentRef = useRef(environment);
 
   useEffect(() => {
     aircraftRef.current = aircraft;
   }, [aircraft]);
+
+  // 环境配置变化时同步到 ref，并实时调整云朵数量
+  useEffect(() => {
+    environmentRef.current = environment;
+    if (width > 0 && height > 0 && initializedRef.current) {
+      syncCloudDensity(cloudsRef.current, width, height, environment.cloudDensity);
+    }
+  }, [environment, width, height]);
 
   const initializeScene = useCallback(
     (w: number, h: number) => {
       if (initializedRef.current) return;
       initializedRef.current = true;
 
-      const initialClouds: Cloud[] = [];
-      for (let i = 0; i < 12; i++) {
-        initialClouds.push({
-          x: randomRange(-100, w + 100),
-          y: randomRange(50, h * 0.6),
-          width: randomRange(80, 300),
-          height: randomRange(30, 90),
-          speed: randomRange(15, 40),
-          opacity: randomRange(0.25, 0.7),
-          puffCount: Math.floor(randomRange(3, 7)),
-          layer: Math.floor(randomRange(0, 3)),
-        });
-      }
-      cloudsRef.current = initialClouds;
+      // 云朵：交由 CloudRenderer 模块根据当前密度生成
+      cloudsRef.current = initClouds(w, h, environmentRef.current.cloudDensity);
 
+      // 山脉：保留原有随机生成逻辑（颜色字段会被 MountainRenderer 按 palette 覆盖）
       const initialMountains: Mountain[] = [];
       for (let i = 0; i < 6; i++) {
         initialMountains.push({
@@ -96,194 +104,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
     }
   }, [width, height, initializeScene]);
 
-  const drawSky = (
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    time: number
-  ) => {
-    const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, '#0d1033');
-    gradient.addColorStop(0.25, '#1a1f4d');
-    gradient.addColorStop(0.5, '#252d6b');
-    gradient.addColorStop(0.75, '#3d3280');
-    gradient.addColorStop(1, '#5c3d8e');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, w, h);
-
-    const sunGradient = ctx.createRadialGradient(
-      w * 0.85,
-      h * 0.12,
-      0,
-      w * 0.85,
-      h * 0.12,
-      w * 0.6
-    );
-    sunGradient.addColorStop(0, 'rgba(255, 200, 150, 0.35)');
-    sunGradient.addColorStop(0.25, 'rgba(255, 150, 100, 0.15)');
-    sunGradient.addColorStop(0.5, 'rgba(255, 100, 150, 0.05)');
-    sunGradient.addColorStop(1, 'transparent');
-    ctx.fillStyle = sunGradient;
-    ctx.fillRect(0, 0, w, h);
-
-    const stars = 80;
-    for (let i = 0; i < stars; i++) {
-      const sx = (i * 137.5) % w;
-      const sy = (i * 73.7) % (h * 0.35);
-      const twinkle = 0.5 + 0.5 * Math.sin(time * 0.0015 + i * 0.7);
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.25 + twinkle * 0.55})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 0.5 + twinkle * 0.8, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  };
-
-  const drawMountains = (
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    offset: number
-  ) => {
-    for (let i = mountainsRef.current.length - 1; i >= 0; i--) {
-      const m = mountainsRef.current[i];
-      const x = (m.x - offset * m.parallaxSpeed * 0.01) % (w * 2);
-      const adjustedX = x < -m.width ? x + w * 2 : x;
-
-      ctx.save();
-
-      const mtnGradient = ctx.createLinearGradient(
-        adjustedX + m.width * 0.3,
-        h - m.height,
-        adjustedX + m.width * 0.5,
-        h
-      );
-      mtnGradient.addColorStop(0, lightenColor(m.color, 10));
-      mtnGradient.addColorStop(0.4, m.color);
-      mtnGradient.addColorStop(1, darkenColor(m.color, 20));
-
-      ctx.beginPath();
-      ctx.moveTo(adjustedX, h);
-      ctx.lineTo(adjustedX + m.width * 0.25, h - m.height * 0.5);
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.45,
-        h - m.height,
-        adjustedX + m.width * 0.55,
-        h - m.height * 0.95
-      );
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.7,
-        h - m.height * 0.7,
-        adjustedX + m.width * 0.85,
-        h - m.height * 0.4
-      );
-      ctx.lineTo(adjustedX + m.width, h);
-      ctx.closePath();
-
-      ctx.fillStyle = mtnGradient;
-      ctx.fill();
-
-      const snowY = h - m.height * 0.85;
-      ctx.beginPath();
-      ctx.moveTo(adjustedX + m.width * 0.42, snowY + m.height * 0.1);
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.5,
-        h - m.height,
-        adjustedX + m.width * 0.58,
-        snowY + m.height * 0.08
-      );
-      ctx.quadraticCurveTo(
-        adjustedX + m.width * 0.52,
-        snowY + m.height * 0.05,
-        adjustedX + m.width * 0.42,
-        snowY + m.height * 0.1
-      );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.fill();
-
-      ctx.restore();
-    }
-  };
-
-  const drawCloud = (ctx: CanvasRenderingContext2D, cloud: Cloud) => {
-    ctx.save();
-    ctx.globalAlpha = cloud.opacity;
-
-    const baseGradient = ctx.createRadialGradient(
-      cloud.x,
-      cloud.y + cloud.height * 0.2,
-      0,
-      cloud.x,
-      cloud.y + cloud.height * 0.2,
-      cloud.width * 0.55
-    );
-    baseGradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    baseGradient.addColorStop(0.35, 'rgba(230, 230, 255, 0.75)');
-    baseGradient.addColorStop(0.7, 'rgba(200, 200, 255, 0.35)');
-    baseGradient.addColorStop(1, 'transparent');
-
-    ctx.fillStyle = baseGradient;
-    ctx.beginPath();
-    ctx.ellipse(
-      cloud.x,
-      cloud.y + cloud.height * 0.3,
-      cloud.width * 0.5,
-      cloud.height * 0.5,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-
-    for (let i = 0; i < cloud.puffCount; i++) {
-      const angle = (i / cloud.puffCount) * Math.PI * 1.6 - Math.PI * 0.8;
-      const dist = cloud.width * 0.22 + Math.sin(i * 1.3) * cloud.width * 0.08;
-      const px = cloud.x + Math.cos(angle) * dist;
-      const py = cloud.y + Math.sin(angle) * dist * 0.45;
-      const size = cloud.height * (0.45 + Math.sin(i * 1.8 + 0.5) * 0.3);
-
-      const puffGradient = ctx.createRadialGradient(
-        px,
-        py - size * 0.2,
-        0,
-        px,
-        py,
-        size
-      );
-      puffGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      puffGradient.addColorStop(0.5, 'rgba(240, 240, 255, 0.7)');
-      puffGradient.addColorStop(1, 'transparent');
-
-      ctx.fillStyle = puffGradient;
-      ctx.beginPath();
-      ctx.arc(px, py, size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    const bottomGradient = ctx.createLinearGradient(
-      cloud.x,
-      cloud.y,
-      cloud.x,
-      cloud.y + cloud.height * 0.8
-    );
-    bottomGradient.addColorStop(0, 'transparent');
-    bottomGradient.addColorStop(0.6, 'rgba(180, 180, 220, 0.15)');
-    bottomGradient.addColorStop(1, 'rgba(150, 150, 200, 0.25)');
-
-    ctx.fillStyle = bottomGradient;
-    ctx.beginPath();
-    ctx.ellipse(
-      cloud.x,
-      cloud.y + cloud.height * 0.4,
-      cloud.width * 0.45,
-      cloud.height * 0.35,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-
-    ctx.restore();
-  };
+  // 注：天空、山脉、云朵的绘制已拆分至 ./flight 子模块（SkyRenderer / MountainRenderer / CloudRenderer）。
 
   const drawSpeedLines = (
     ctx: CanvasRenderingContext2D,
@@ -744,24 +565,19 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
 
       clear();
 
-      drawSky(ctx, width, height, timestamp);
-      drawMountains(ctx, width, height, timestamp);
+      // 1) 根据当前时间值解析调色板
+      const env = environmentRef.current;
+      const palette = getPaletteForTime(env.timeOfDay);
 
-      const sortedClouds = [...cloudsRef.current].sort((a, b) => a.y - b.y);
+      // 2) 天空背景（含太阳/月亮 + 星空）
+      drawSky(ctx, width, height, palette, timestamp);
 
-      for (let i = sortedClouds.length - 1; i >= 0; i--) {
-        const cloud = sortedClouds[i];
-        cloud.x -= cloud.speed * deltaTime;
-        if (cloud.x < -cloud.width) {
-          cloud.x = width + randomRange(0, 300);
-          cloud.y = randomRange(50, height * 0.6);
-          cloud.width = randomRange(80, 300);
-          cloud.height = randomRange(30, 90);
-          cloud.speed = randomRange(15, 40);
-          cloud.opacity = randomRange(0.25, 0.7);
-        }
-        drawCloud(ctx, cloud);
-      }
+      // 3) 山脉（应用用户高度倍数 + 时段色调）
+      drawMountains(ctx, mountainsRef.current, width, height, timestamp, env.mountainHeight, palette);
+
+      // 4) 云朵（更新位置后按时段色调绘制）
+      updateClouds(cloudsRef.current, deltaTime, width, height);
+      drawClouds(ctx, cloudsRef.current, palette);
 
       const ac = { ...aircraftRef.current };
 
@@ -843,6 +659,10 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
       }
 
       drawAircraft(ctx, ac, timestamp);
+
+      // 5) 在所有场景元素之上叠加环境氛围色（如夜晚的冷蓝、日出的暖橙）
+      drawAmbientOverlay(ctx, width, height, palette);
+
       drawHUD(ctx, width, ac);
 
       updateAircraft({

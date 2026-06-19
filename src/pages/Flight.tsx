@@ -1,5 +1,6 @@
 import React from 'react';
 import { FlightSimulator } from '@/components/canvas/FlightSimulator';
+import { EnvironmentControls } from '@/components/canvas/flight/EnvironmentControls';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/store/useAppStore';
@@ -93,8 +94,8 @@ const Flight: React.FC = () => {
         </GlassCard>
       </div>
 
-      <div className="absolute top-24 right-6 z-20">
-        <GlassCard className="p-4 w-64">
+      <div className="absolute top-24 right-6 z-20 flex flex-col gap-4">
+        <GlassCard className="p-4 w-72">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-white/70 space-y-1">
@@ -108,6 +109,9 @@ const Flight: React.FC = () => {
             </div>
           </div>
         </GlassCard>
+
+        {/* 环境自定义控制面板：时间滑块 + 云层/山脉控制 */}
+        <EnvironmentControls />
       </div>
     </div>
   );
