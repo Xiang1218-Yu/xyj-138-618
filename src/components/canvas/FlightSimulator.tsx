@@ -16,14 +16,14 @@ import { CloudSystem } from './flight/CloudSystem';
 import { MountainSystem } from './flight/MountainSystem';
 
 interface FlightSimulatorProps {
-  onMouseEnter?: () =&gt; void;
-  onMouseLeave?: () =&gt; void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
-export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
+export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
   onMouseEnter,
   onMouseLeave,
-}) =&gt; {
+}) => {
   const { canvasRef, getContext, width, height, clear } = useCanvas();
   const {
     flight: { aircraft, thrustParticles, environment },
@@ -37,7 +37,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
   const aircraftRef = useRef(aircraft);
   const timeRef = useRef(0);
   const initializedRef = useRef(false);
-  const speedLinesRef = useRef&lt;{ x: number; y: number; length: number; opacity: number }[]&gt;([]);
+  const speedLinesRef = useRef<{ x: number; y: number; length: number; opacity: number }[]>([]);
 
   /**
    * 环境渲染子系统实例
@@ -50,7 +50,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
   /** 缓存上一次的环境配置，用于检测变化 */
   const prevEnvRef = useRef({ cloudDensity: -1, mountainHeight: -1, timeValue: -1 });
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     aircraftRef.current = aircraft;
   }, [aircraft]);
 
@@ -58,7 +58,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
    * 初始化所有场景子系统
    */
   const initializeScene = useCallback(
-    (w: number, h: number) =&gt; {
+    (w: number, h: number) => {
       if (initializedRef.current) return;
       initializedRef.current = true;
 
@@ -67,7 +67,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       mountainSystemRef.current.initialize(w, h, environment.mountainHeight);
 
       const speedLines = [];
-      for (let i = 0; i &lt; 20; i++) {
+      for (let i = 0; i < 20; i++) {
         speedLines.push({
           x: randomRange(-w, w),
           y: randomRange(0, h),
@@ -88,8 +88,8 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     [updateAircraft, environment]
   );
 
-  useEffect(() =&gt; {
-    if (width &gt; 0 &amp;&amp; height &gt; 0) {
+  useEffect(() => {
+    if (width > 0 && height > 0) {
       initializeScene(width, height);
       skyRendererRef.current.resize(width, height);
       cloudSystemRef.current.resize(width, height);
@@ -100,7 +100,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
   /**
    * 同步环境配置变化到各子系统
    */
-  const syncEnvironment = useCallback(() =&gt; {
+  const syncEnvironment = useCallback(() => {
     if (prevEnvRef.current.timeValue !== environment.timeValue) {
       skyRendererRef.current.setTimeValue(environment.timeValue);
       prevEnvRef.current.timeValue = environment.timeValue;
@@ -122,13 +122,13 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     ctx: CanvasRenderingContext2D,
     ac: typeof aircraft,
     time: number
-  ) =&gt; {
+  ) => {
     const speedRatio = ac.speed / ac.maxSpeed;
-    if (speedRatio &lt; 0.2) return;
+    if (speedRatio < 0.2) return;
 
     const lineCount = Math.floor(speedRatio * 15);
 
-    for (let i = 0; i &lt; lineCount &amp;&amp; i &lt; speedLinesRef.current.length; i++) {
+    for (let i = 0; i < lineCount && i < speedLinesRef.current.length; i++) {
       const line = speedLinesRef.current[i];
       const opacity = speedRatio * 0.6 * (0.5 + 0.5 * Math.sin(time * 0.01 + i));
 
@@ -161,7 +161,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     ctx: CanvasRenderingContext2D,
     ac: typeof aircraft,
     time: number
-  ) =&gt; {
+  ) => {
     ctx.save();
     ctx.translate(ac.x, ac.y);
     ctx.rotate(ac.angle);
@@ -276,7 +276,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     ctx.closePath();
     ctx.fill();
 
-    if (ac.isThrusting &amp;&amp; ac.fuel &gt; 0) {
+    if (ac.isThrusting && ac.fuel > 0) {
       const flameIntensity = 0.6 + 0.4 * Math.sin(time * 0.025);
       const flameLength = 50 + flameIntensity * 40;
 
@@ -311,7 +311,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       ctx.closePath();
       ctx.fill();
 
-      for (let i = 0; i &lt; 5; i++) {
+      for (let i = 0; i < 5; i++) {
         const sparkDist = flameLength * (0.3 + Math.random() * 0.7);
         const sparkY = (Math.random() - 0.5) * bodyHeight * 0.6;
         const sparkSize = 2 + Math.random() * 4;
@@ -324,7 +324,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       }
     }
 
-    const navLightColor = time % 2000 &lt; 1000 ? '#ff4444' : '#ff8888';
+    const navLightColor = time % 2000 < 1000 ? '#ff4444' : '#ff8888';
     ctx.fillStyle = navLightColor;
     ctx.shadowColor = '#ff0000';
     ctx.shadowBlur = 8;
@@ -342,7 +342,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
   const drawThrustParticle = (
     ctx: CanvasRenderingContext2D,
     p: ThrustParticle
-  ) =&gt; {
+  ) => {
     const opacity = p.opacity;
     const size = p.size * opacity;
 
@@ -364,7 +364,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     ctx: CanvasRenderingContext2D,
     w: number,
     ac: typeof aircraft
-  ) =&gt; {
+  ) => {
     const padding = 20;
     const barWidth = 150;
     const barHeight = 8;
@@ -449,7 +449,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       fuelX + 8 + (barWidth - 6),
       0
     );
-    if (fuelPercent &gt; 0.3) {
+    if (fuelPercent > 0.3) {
       fuelGradient.addColorStop(0, '#43e97b');
       fuelGradient.addColorStop(1, '#38f9d7');
     } else {
@@ -485,7 +485,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
    * 协调所有子系统的更新和渲染
    */
   const render = useCallback(
-    (deltaTime: number, timestamp: number) =&gt; {
+    (deltaTime: number, timestamp: number) => {
       const ctx = getContext();
       if (!ctx || width === 0 || height === 0) return;
 
@@ -511,14 +511,14 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       const targetAngle = Math.atan2(dy, dx);
       ac.angle = lerpAngle(ac.angle, targetAngle, 0.09);
 
-      if (mouseRef.current.isDown &amp;&amp; ac.fuel &gt; 0) {
+      if (mouseRef.current.isDown && ac.fuel > 0) {
         const acceleration = 500;
         ac.velocityX += Math.cos(ac.angle) * acceleration * deltaTime;
         ac.velocityY += Math.sin(ac.angle) * acceleration * deltaTime;
         ac.isThrusting = true;
         ac.fuel = Math.max(0, ac.fuel - deltaTime * 4.5);
 
-        for (let i = 0; i &lt; 3; i++) {
+        for (let i = 0; i < 3; i++) {
           const spread = (Math.random() - 0.5) * 0.6;
           const particleAngle = ac.angle + Math.PI + spread;
           const speed = randomRange(120, 250);
@@ -545,7 +545,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
       ac.velocityY *= drag;
 
       ac.speed = Math.sqrt(ac.velocityX ** 2 + ac.velocityY ** 2);
-      if (ac.speed &gt; ac.maxSpeed * 60) {
+      if (ac.speed > ac.maxSpeed * 60) {
         const scale = (ac.maxSpeed * 60) / ac.speed;
         ac.velocityX *= scale;
         ac.velocityY *= scale;
@@ -563,7 +563,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
 
       drawSpeedLines(ctx, ac, timestamp);
 
-      for (let i = thrustParticles.length - 1; i &gt;= 0; i--) {
+      for (let i = thrustParticles.length - 1; i >= 0; i--) {
         const p = thrustParticles[i];
         p.x += p.vx * deltaTime;
         p.y += p.vy * deltaTime;
@@ -572,7 +572,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
         p.life -= deltaTime * 60;
         p.opacity = Math.max(0, p.life / p.maxLife);
 
-        if (p.life &lt;= 0) {
+        if (p.life <= 0) {
           thrustParticles.splice(i, 1);
         } else {
           drawThrustParticle(ctx, p);
@@ -608,7 +608,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
 
   useAnimationFrame(render, true);
 
-  const handleMouseMove = (e: React.MouseEvent&lt;HTMLCanvasElement&gt;) =&gt; {
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
       mouseRef.current.x = e.clientX - rect.left;
@@ -616,7 +616,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent&lt;HTMLCanvasElement&gt;) =&gt; {
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
       mouseRef.current.x = e.clientX - rect.left;
@@ -626,25 +626,25 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
     }
   };
 
-  const handleMouseUp = () =&gt; {
+  const handleMouseUp = () => {
     mouseRef.current.isDown = false;
     setCursorType('hover');
   };
 
-  const handleMouseEnter = () =&gt; {
+  const handleMouseEnter = () => {
     onMouseEnter?.();
     setCursorType('hover');
   };
 
-  const handleMouseLeave = () =&gt; {
+  const handleMouseLeave = () => {
     onMouseLeave?.();
     handleMouseUp();
     setCursorType('default');
   };
 
   return (
-    &lt;div className="relative w-full h-full"&gt;
-      &lt;canvas
+    <div className="relative w-full h-full">
+      <canvas
         ref={canvasRef}
         className="w-full h-full touch-none"
         onMouseMove={handleMouseMove}
@@ -652,7 +652,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
         onMouseUp={handleMouseUp}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onTouchStart={(e) =&gt; {
+        onTouchStart={(e) => {
           e.preventDefault();
           const touch = e.touches[0];
           const rect = canvasRef.current?.getBoundingClientRect();
@@ -662,7 +662,7 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
             mouseRef.current.isDown = true;
           }
         }}
-        onTouchMove={(e) =&gt; {
+        onTouchMove={(e) => {
           e.preventDefault();
           const touch = e.touches[0];
           const rect = canvasRef.current?.getBoundingClientRect();
@@ -672,15 +672,15 @@ export const FlightSimulator: React.FC&lt;FlightSimulatorProps&gt; = ({
           }
         }}
         onTouchEnd={handleMouseUp}
-      /&gt;
-      &lt;div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm pointer-events-none text-center"&gt;
-        &lt;div&gt;
+      />
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm pointer-events-none text-center">
+        <div>
           {mouseRef.current.isDown
             ? '按住加速，穿越云层 ✈️'
             : '移动鼠标控制方向，按住加速起飞'}
-        &lt;/div&gt;
-        &lt;div className="text-xs mt-1"&gt;松开减速，自动补充燃料&lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
+        </div>
+        <div className="text-xs mt-1">松开减速，自动补充燃料</div>
+      </div>
+    </div>
   );
 };

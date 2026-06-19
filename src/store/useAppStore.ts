@@ -78,14 +78,14 @@ interface AppState {
   updateStem: (id: string, updates: Partial<Stem>) => void;
   clearStems: () => void;
 
-  updateAircraft: (updates: Partial&lt;Aircraft&gt;) =&gt; void;
-  setIsMouseDown: (value: boolean) =&gt; void;
-  addThrustParticle: (particle: ThrustParticle) =&gt; void;
-  setCloudDensity: (density: number) =&gt; void;
-  setMountainHeight: (height: number) =&gt; void;
-  setTimeValue: (value: number) =&gt; void;
-  setTimeOfDay: (timeOfDay: TimeOfDay) =&gt; void;
-  resetFlight: () =&gt; void;
+  updateAircraft: (updates: Partial<Aircraft>) => void;
+  setIsMouseDown: (value: boolean) => void;
+  addThrustParticle: (particle: ThrustParticle) => void;
+  setCloudDensity: (density: number) => void;
+  setMountainHeight: (height: number) => void;
+  setTimeValue: (value: number) => void;
+  setTimeOfDay: (timeOfDay: TimeOfDay) => void;
+  resetFlight: () => void;
 
   addFluidParticle: (particle: FluidParticle) => void;
   updateFluidParticle: (id: string, updates: Partial<FluidParticle>) => void;
@@ -345,37 +345,37 @@ export const useAppStore = create<AppState>((set) => ({
       flight: { ...state.flight, isMouseDown: value },
     })),
 
-  addThrustParticle: (particle) =&gt;
-    set((state) =&gt; ({
+  addThrustParticle: (particle) =>
+    set((state) => ({
       flight: {
         ...state.flight,
         thrustParticles: [...state.flight.thrustParticles, particle].slice(-150),
       },
     })),
 
-  setCloudDensity: (density) =&gt;
-    set((state) =&gt; ({
+  setCloudDensity: (density) =>
+    set((state) => ({
       flight: {
         ...state.flight,
         environment: { ...state.flight.environment, cloudDensity: Math.max(0, Math.min(100, density)) },
       },
     })),
 
-  setMountainHeight: (height) =&gt;
-    set((state) =&gt; ({
+  setMountainHeight: (height) =>
+    set((state) => ({
       flight: {
         ...state.flight,
         environment: { ...state.flight.environment, mountainHeight: Math.max(0, Math.min(100, height)) },
       },
     })),
 
-  setTimeValue: (value) =&gt;
-    set((state) =&gt; {
+  setTimeValue: (value) =>
+    set((state) => {
       const clampedValue = Math.max(0, Math.min(100, value));
       let timeOfDay = state.flight.environment.timeOfDay;
-      if (clampedValue &lt; 25) timeOfDay = TimeOfDay.Sunrise;
-      else if (clampedValue &lt; 50) timeOfDay = TimeOfDay.Noon;
-      else if (clampedValue &lt; 75) timeOfDay = TimeOfDay.Sunset;
+      if (clampedValue < 25) timeOfDay = TimeOfDay.Sunrise;
+      else if (clampedValue < 50) timeOfDay = TimeOfDay.Noon;
+      else if (clampedValue < 75) timeOfDay = TimeOfDay.Sunset;
       else timeOfDay = TimeOfDay.Night;
       return {
         flight: {
@@ -385,9 +385,9 @@ export const useAppStore = create<AppState>((set) => ({
       };
     }),
 
-  setTimeOfDay: (timeOfDay) =&gt;
-    set((state) =&gt; {
-      const timeValueMap: Record&lt;TimeOfDay, number&gt; = {
+  setTimeOfDay: (timeOfDay) =>
+    set((state) => {
+      const timeValueMap: Record<TimeOfDay, number> = {
         [TimeOfDay.Sunrise]: 12.5,
         [TimeOfDay.Noon]: 37.5,
         [TimeOfDay.Sunset]: 62.5,
@@ -401,8 +401,8 @@ export const useAppStore = create<AppState>((set) => ({
       };
     }),
 
-  resetFlight: () =&gt;
-    set((state) =&gt; ({
+  resetFlight: () =>
+    set((state) => ({
       flight: {
         ...state.flight,
         aircraft: { ...initialAircraft },

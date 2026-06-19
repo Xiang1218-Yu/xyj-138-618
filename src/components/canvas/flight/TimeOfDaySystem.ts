@@ -10,7 +10,7 @@ import { SkyColors, TimeOfDay } from '@/types/flight';
  * 预定义四个时段的天空配色方案
  * 每个方案包含天空渐变、太阳/月亮位置、星星显示等完整配置
  */
-const TIME_PRESETS: Record&lt;TimeOfDay, SkyColors&gt; = {
+const TIME_PRESETS: Record<TimeOfDay, SkyColors> = {
   /** 日出：橙粉渐变，太阳从东方升起 */
   [TimeOfDay.Sunrise]: {
     topColor: '#2d1b4e',
@@ -81,7 +81,7 @@ const TIME_SEGMENTS = [
  * @param hex - 十六进制颜色字符串
  * @returns RGB三通道数组 [r, g, b]，范围0-255
  */
-const hexToRgb = (hex: string): [number, number, number] =&gt; {
+const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
@@ -95,8 +95,8 @@ const hexToRgb = (hex: string): [number, number, number] =&gt; {
  * @param b - 蓝色通道 0-255
  * @returns 十六进制颜色字符串
  */
-const rgbToHex = (r: number, g: number, b: number): string =&gt; {
-  return `#${((1 &lt;&lt; 24) | (r &lt;&lt; 16) | (g &lt;&lt; 8) | b).toString(16).slice(1)}`;
+const rgbToHex = (r: number, g: number, b: number): string => {
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 };
 
 /**
@@ -106,7 +106,7 @@ const rgbToHex = (r: number, g: number, b: number): string =&gt; {
  * @param t - 插值比例 0-1
  * @returns 插值后的十六进制颜色
  */
-const lerpColor = (color1: string, color2: string, t: number): string =&gt; {
+const lerpColor = (color1: string, color2: string, t: number): string => {
   const [r1, g1, b1] = hexToRgb(color1);
   const [r2, g2, b2] = hexToRgb(color2);
   return rgbToHex(
@@ -123,7 +123,7 @@ const lerpColor = (color1: string, color2: string, t: number): string =&gt; {
  * @param t - 插值比例 0-1
  * @returns 插值后的rgba颜色字符串
  */
-const lerpRgbaColor = (color1: string, color2: string, t: number): string =&gt; {
+const lerpRgbaColor = (color1: string, color2: string, t: number): string => {
   const match1 = color1.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
   const match2 = color2.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
   if (!match1 || !match2) return color1;
@@ -145,7 +145,7 @@ const lerpRgbaColor = (color1: string, color2: string, t: number): string =&gt; 
  * @param t - 插值比例 0-1
  * @returns 插值后的完整SkyColors配置
  */
-const lerpSkyColors = (colors1: SkyColors, colors2: SkyColors, t: number): SkyColors =&gt; {
+const lerpSkyColors = (colors1: SkyColors, colors2: SkyColors, t: number): SkyColors => {
   return {
     topColor: lerpColor(colors1.topColor, colors2.topColor, t),
     middleColor: lerpColor(colors1.middleColor, colors2.middleColor, t),
@@ -154,7 +154,7 @@ const lerpSkyColors = (colors1: SkyColors, colors2: SkyColors, t: number): SkyCo
     sunY: colors1.sunY + (colors2.sunY - colors2.sunY) * t,
     sunColor: lerpColor(colors1.sunColor, colors2.sunColor, t),
     sunGlowColor: lerpRgbaColor(colors1.sunGlowColor, colors2.sunGlowColor, t),
-    showStars: t &lt; 0.5 ? colors1.showStars : colors2.showStars,
+    showStars: t < 0.5 ? colors1.showStars : colors2.showStars,
     starBrightness: colors1.starBrightness + (colors2.starBrightness - colors1.starBrightness) * t,
     fogColor: lerpRgbaColor(colors1.fogColor, colors2.fogColor, t),
   };
@@ -166,12 +166,12 @@ const lerpSkyColors = (colors1: SkyColors, colors2: SkyColors, t: number): SkyCo
  * @param timeValue - 时间值 0-100
  * @returns 对应的SkyColors配置
  */
-export const getSkyColors = (timeValue: number): SkyColors =&gt; {
+export const getSkyColors = (timeValue: number): SkyColors => {
   const clampedTime = Math.max(0, Math.min(100, timeValue));
 
-  for (let i = 0; i &lt; TIME_SEGMENTS.length; i++) {
+  for (let i = 0; i < TIME_SEGMENTS.length; i++) {
     const segment = TIME_SEGMENTS[i];
-    if (clampedTime &lt;= segment.end) {
+    if (clampedTime <= segment.end) {
       if (i === 0) {
         return TIME_PRESETS[segment.time];
       }
@@ -194,11 +194,11 @@ export const getSkyColors = (timeValue: number): SkyColors =&gt; {
  * @param timeValue - 时间值 0-100
  * @returns 对应的TimeOfDay枚举值
  */
-export const getTimeOfDay = (timeValue: number): TimeOfDay =&gt; {
+export const getTimeOfDay = (timeValue: number): TimeOfDay => {
   const clampedTime = Math.max(0, Math.min(100, timeValue));
-  if (clampedTime &lt; 25) return TimeOfDay.Sunrise;
-  if (clampedTime &lt; 50) return TimeOfDay.Noon;
-  if (clampedTime &lt; 75) return TimeOfDay.Sunset;
+  if (clampedTime < 25) return TimeOfDay.Sunrise;
+  if (clampedTime < 50) return TimeOfDay.Noon;
+  if (clampedTime < 75) return TimeOfDay.Sunset;
   return TimeOfDay.Night;
 };
 
@@ -207,8 +207,8 @@ export const getTimeOfDay = (timeValue: number): TimeOfDay =&gt; {
  * @param timeOfDay - 时段枚举值
  * @returns 中文名称
  */
-export const getTimeOfDayLabel = (timeOfDay: TimeOfDay): string =&gt; {
-  const labels: Record&lt;TimeOfDay, string&gt; = {
+export const getTimeOfDayLabel = (timeOfDay: TimeOfDay): string => {
+  const labels: Record<TimeOfDay, string> = {
     [TimeOfDay.Sunrise]: '日出',
     [TimeOfDay.Noon]: '正午',
     [TimeOfDay.Sunset]: '日落',

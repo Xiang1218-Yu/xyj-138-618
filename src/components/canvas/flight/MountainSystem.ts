@@ -6,15 +6,22 @@
 
 import { Mountain } from '@/types/flight';
 import { randomRange } from '@/utils/math';
-import { lightenColor, darkenColor } from '@/utils/colors';
+import { lightenColor, darkenColor, hslToHex, hexToRgb, rgbToHex } from '@/utils/colors';
+
+interface MountainData extends Mountain {
+  /** 基础高度随机比例 0.7-1.2 */
+  baseHeightRatio: number;
+  /** 所在层索引 */
+  layerIndex: number;
+}
 
 /**
  * 山脉管理类
  * 封装多层视差山脉的创建、滚动和渲染逻辑
  */
 export class MountainSystem {
-  /** 多层山脉数组（远到近） */
-  private mountains: Mountain[][] = [];
+  /** 多层山脉数据（远到近） */
+  private mountains: MountainData[][] = [];
   /** 画布宽度 */
   private width: number = 0;
   /** 画布高度 */
@@ -44,40 +51,62 @@ export class MountainSystem {
 
   /**
    * 生成多层视差山脉
-   * 每层山脉有不同的颜色、高度和视差速度
+   * 每层山脉有不同的颜色、基础高度和视差速度
+   * 随机种子在初始化时固定，后续调节高度只进行缩放
    */
   private generateMountains(): void {
     this.mountains = [];
-    const heightFactor = 0.4 + (this.heightMultiplier / 100) * 0.8;
 
-    for (let layer = 0; layer &lt; this.LAYER_COUNT; layer++) {
-      const layerMountains: Mountain[] = [];
+    for (let layer = 0; layer < this.LAYER_COUNT; layer++) {
+      const layerMountains: MountainData[] = [];
       const layerDepth = layer / this.LAYER_COUNT;
-      const baseHeight = this.height * (0.15 + layerDepth * 0.35) * heightFactor;
+      const layerBaseHeight = this.height * (0.15 + layerDepth * 0.35);
       const mountainCount = 4 + layer * 2;
 
-      for (let i = 0; i &lt; mountainCount; i++) {
+      for (let i = 0; i < mountainCount; i++) {
         const hue = 220 + layer * 8 + i * 3;
+        const saturation = 20 + layer * 5;
         const lightness = 8 + layer * 6 + i * 2;
         layerMountains.push({
           x: (i / mountainCount) * this.width * 2 - this.width * 0.3,
-          height: baseHeight * randomRange(0.7, 1.2),
+          height: 0,
           width: this.width * randomRange(0.4, 0.8),
-          color: `hsl(${hue}, ${20 + layer * 5}%, ${lightness}%)`,
+          color: hslToHex(hue, saturation, lightness),
           parallaxSpeed: 8 + layer * 15,
+          baseHeightRatio: randomRange(0.7, 1.2),
+          layerIndex: layer,
         });
       }
       this.mountains.push(layerMountains);
     }
+
+    this.updateMountainHeights();
   }
 
   /**
-   * 设置山脉高度系数并重新生成
+   * 根据当前heightMultiplier更新所有山脉的实际高度
+   * 只进行缩放，不改变位置和形状比例
+   */
+  private updateMountainHeights(): void {
+    const heightFactor = 0.4 + (this.heightMultiplier / 100) * 0.8;
+
+    for (let layer = 0; layer < this.LAYER_COUNT; layer++) {
+      const layerDepth = layer / this.LAYER_COUNT;
+      const layerBaseHeight = this.height * (0.15 + layerDepth * 0.35) * heightFactor;
+
+      for (const mountain of this.mountains[layer]) {
+        mountain.height = layerBaseHeight * mountain.baseHeightRatio;
+      }
+    }
+  }
+
+  /**
+   * 设置山脉高度系数（仅缩放高度，不重新生成位置形状）
    * @param multiplier - 高度系数 0-100
    */
   setHeightMultiplier(multiplier: number): void {
     this.heightMultiplier = Math.max(0, Math.min(100, multiplier));
-    this.generateMountains();
+    this.updateMountainHeights();
   }
 
   /**
@@ -113,7 +142,7 @@ export class MountainSystem {
   ): void {
     if (!this.initialized) return;
 
-    for (let layer = 0; layer &lt; this.mountains.length; layer++) {
+    for (let layer = 0; layer < this.mountains.length; layer++) {
       for (const mountain of this.mountains[layer]) {
         this.drawMountain(ctx, mountain, layer, timeTint);
       }
@@ -134,7 +163,7 @@ export class MountainSystem {
     timeTint: { r: number; g: number; b: number }
   ): void {
     const x = (mountain.x - this.scrollOffset * mountain.parallaxSpeed * 0.01) % (this.width * 2.5);
-    const adjustedX = x &lt; -mountain.width ? x + this.width * 2.5 : x;
+    const adjustedX = x < -mountain.width ? x + this.width * 2.5 : x;
 
     ctx.save();
 
@@ -171,8 +200,11 @@ export class MountainSystem {
     ctx.fillStyle = mtnGradient;
     ctx.fill();
 
-    if (layer &gt;= this.LAYER_COUNT - 2 &amp;&amp; mountain.height &gt; this.height * 0.3) {
+    if (layer >= this.LAYER_COUNT - 2 && mountain.height > this.height * 0.3) {
       const snowY = this.height - mountain.height * 0.85;
+      const tr = timeTint.r / 255;
+      const tg = timeTint.g / 255;
+      const tb = timeTint.b / 255;
       ctx.beginPath();
       ctx.moveTo(adjustedX + mountain.width * 0.42, snowY + mountain.height * 0.1);
       ctx.quadraticCurveTo(
@@ -187,7 +219,7 @@ export class MountainSystem {
         adjustedX + mountain.width * 0.42,
         snowY + mountain.height * 0.1
       );
-      ctx.fillStyle = `rgba(${Math.round(255 * timeTint.r / 255)}, ${Math.round(255 * timeTint.g / 255)}, ${Math.round(255 * timeTint.b / 255)}, 0.25)`;
+      ctx.fillStyle = `rgba(${Math.round(255 * tr)}, ${Math.round(255 * tg)}, ${Math.round(255 * tb)}, 0.25)`;
       ctx.fill();
     }
 
@@ -196,29 +228,22 @@ export class MountainSystem {
 
   /**
    * 对颜色应用时间着色
-   * @param baseColor - 基础HSL颜色字符串
+   * @param baseColor - 基础hex颜色字符串
    * @param tint - 着色RGB
    * @param depth - 深度系数，影响着色强度
-   * @returns 着色后的HSL颜色
+   * @returns 着色后的hex颜色
    */
   private applyTint(
     baseColor: string,
     tint: { r: number; g: number; b: number },
     depth: number
   ): string {
-    const hslMatch = baseColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-    if (!hslMatch) return baseColor;
-
-    const h = parseInt(hslMatch[1]);
-    const s = parseInt(hslMatch[2]);
-    let l = parseInt(hslMatch[3]);
-
+    const baseRgb = hexToRgb(baseColor);
     const tintStrength = 0.15 * (1 - depth);
-    const avgTint = (tint.r + tint.g + tint.b) / 3;
-    l = l + (avgTint - 128) / 255 * tintStrength * 20;
-    l = Math.max(0, Math.min(100, l));
-
-    return `hsl(${h}, ${s}%, ${l}%)`;
+    const tr = baseRgb.r + (tint.r - baseRgb.r) * tintStrength;
+    const tg = baseRgb.g + (tint.g - baseRgb.g) * tintStrength;
+    const tb = baseRgb.b + (tint.b - baseRgb.b) * tintStrength;
+    return rgbToHex(tr, tg, tb);
   }
 
   /**

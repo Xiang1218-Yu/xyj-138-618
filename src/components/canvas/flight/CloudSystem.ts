@@ -7,13 +7,24 @@
 import { Cloud } from '@/types/flight';
 import { randomRange } from '@/utils/math';
 
+interface CloudData extends Cloud {
+  /** 基础宽度 */
+  baseWidth: number;
+  /** 基础高度 */
+  baseHeight: number;
+  /** 基础速度 */
+  baseSpeed: number;
+  /** 基础不透明度 */
+  baseOpacity: number;
+}
+
 /**
  * 云层管理类
  * 封装云层的创建、动画和渲染逻辑
  */
 export class CloudSystem {
   /** 云层数组 */
-  private clouds: Cloud[] = [];
+  private clouds: CloudData[] = [];
   /** 画布宽度 */
   private width: number = 0;
   /** 画布高度 */
@@ -22,6 +33,10 @@ export class CloudSystem {
   private density: number = 50;
   /** 是否初始化完成 */
   private initialized: boolean = false;
+  /** 最大云层数量 */
+  private readonly MAX_CLOUDS = 28;
+  /** 最小云层数量 */
+  private readonly MIN_CLOUDS = 4;
 
   /**
    * 初始化云层系统
@@ -43,44 +58,67 @@ export class CloudSystem {
    * 密度决定云层数量和透明度
    */
   private generateClouds(): void {
-    const baseCount = Math.floor((this.density / 100) * 24) + 4;
+    const targetCount = Math.floor((this.density / 100) * (this.MAX_CLOUDS - this.MIN_CLOUDS)) + this.MIN_CLOUDS;
     this.clouds = [];
 
-    for (let i = 0; i &lt; baseCount; i++) {
-      this.clouds.push(this.createCloud(
+    for (let i = 0; i < targetCount; i++) {
+      this.clouds.push(this.createCloudData(
         randomRange(-100, this.width + 100),
         randomRange(50, this.height * 0.65)
       ));
     }
+
+    this.updateCloudScales();
   }
 
   /**
-   * 创建单个云层对象
+   * 创建单个云层数据对象
    * @param x - 初始X位置
    * @param y - 初始Y位置
-   * @returns 新的Cloud对象
+   * @returns 新的CloudData对象
    */
-  private createCloud(x: number, y: number): Cloud {
-    const densityMultiplier = this.density / 100;
+  private createCloudData(x: number, y: number): CloudData {
     return {
       x,
       y,
-      width: randomRange(80, 300) * (0.6 + densityMultiplier * 0.6),
-      height: randomRange(30, 90) * (0.6 + densityMultiplier * 0.6),
-      speed: randomRange(15, 40) * (0.5 + densityMultiplier * 0.8),
-      opacity: randomRange(0.25, 0.7) * (0.4 + densityMultiplier * 0.8),
+      width: 0,
+      height: 0,
+      speed: 0,
+      opacity: 0,
       puffCount: Math.floor(randomRange(3, 7)),
       layer: Math.floor(randomRange(0, 3)),
+      baseWidth: randomRange(80, 300),
+      baseHeight: randomRange(30, 90),
+      baseSpeed: randomRange(15, 40),
+      baseOpacity: randomRange(0.25, 0.7),
     };
   }
 
   /**
-   * 更新云层密度并重新生成云层
+   * 根据当前密度更新所有云的实际属性
+   * 只缩放大小/速度/透明度，不改变位置
+   */
+  private updateCloudScales(): void {
+    const densityMultiplier = this.density / 100;
+    const scale = 0.6 + densityMultiplier * 0.6;
+    const speedScale = 0.5 + densityMultiplier * 0.8;
+    const opacityScale = 0.4 + densityMultiplier * 0.8;
+
+    for (const cloud of this.clouds) {
+      cloud.width = cloud.baseWidth * scale;
+      cloud.height = cloud.baseHeight * scale;
+      cloud.speed = cloud.baseSpeed * speedScale;
+      cloud.opacity = cloud.baseOpacity * opacityScale;
+    }
+  }
+
+  /**
+   * 设置云层密度（平滑调整，不重新生成）
    * @param density - 新的密度值 0-100
    */
   setDensity(density: number): void {
     this.density = Math.max(0, Math.min(100, density));
-    this.generateClouds();
+    this.updateCloudScales();
   }
 
   /**
@@ -90,12 +128,21 @@ export class CloudSystem {
   update(deltaTime: number): void {
     if (!this.initialized) return;
 
+    const densityMultiplier = this.density / 100;
+    const scale = 0.6 + densityMultiplier * 0.6;
+    const speedScale = 0.5 + densityMultiplier * 0.8;
+    const opacityScale = 0.4 + densityMultiplier * 0.8;
+
     for (const cloud of this.clouds) {
       cloud.x -= cloud.speed * deltaTime;
-      if (cloud.x &lt; -cloud.width - 50) {
+      if (cloud.x < -cloud.width - 50) {
         const newX = this.width + randomRange(0, 300);
         const newY = randomRange(50, this.height * 0.65);
-        Object.assign(cloud, this.createCloud(newX, newY));
+        Object.assign(cloud, this.createCloudData(newX, newY));
+        cloud.width = cloud.baseWidth * scale;
+        cloud.height = cloud.baseHeight * scale;
+        cloud.speed = cloud.baseSpeed * speedScale;
+        cloud.opacity = cloud.baseOpacity * opacityScale;
       }
     }
   }
@@ -118,7 +165,7 @@ export class CloudSystem {
   render(ctx: CanvasRenderingContext2D, timeTint: { r: number; g: number; b: number } = { r: 255, g: 255, b: 255 }): void {
     if (!this.initialized) return;
 
-    const sortedClouds = [...this.clouds].sort((a, b) =&gt; a.y - b.y);
+    const sortedClouds = [...this.clouds].sort((a, b) => a.y - b.y);
     for (const cloud of sortedClouds) {
       this.drawCloud(ctx, cloud, timeTint);
     }
@@ -138,9 +185,12 @@ export class CloudSystem {
     ctx.save();
     ctx.globalAlpha = cloud.opacity;
 
-    const tintedWhite = `rgb(${Math.round(255 * timeTint.r / 255)}, ${Math.round(255 * timeTint.g / 255)}, ${Math.round(255 * timeTint.b / 255)})`;
-    const tintedLight = `rgb(${Math.round(230 * timeTint.r / 255)}, ${Math.round(230 * timeTint.g / 255)}, ${Math.round(255 * timeTint.b / 255)})`;
-    const tintedMedium = `rgb(${Math.round(200 * timeTint.r / 255)}, ${Math.round(200 * timeTint.g / 255)}, ${Math.round(255 * timeTint.b / 255)})`;
+    const tr = timeTint.r / 255;
+    const tg = timeTint.g / 255;
+    const tb = timeTint.b / 255;
+    const tintedWhite = `rgb(${Math.round(255 * tr)}, ${Math.round(255 * tg)}, ${Math.round(255 * tb)})`;
+    const tintedLight = `rgb(${Math.round(230 * tr)}, ${Math.round(230 * tg)}, ${Math.round(230 * tb)})`;
+    const tintedMedium = `rgb(${Math.round(200 * tr)}, ${Math.round(200 * tg)}, ${Math.round(200 * tb)})`;
 
     const baseGradient = ctx.createRadialGradient(
       cloud.x,
@@ -168,7 +218,7 @@ export class CloudSystem {
     );
     ctx.fill();
 
-    for (let i = 0; i &lt; cloud.puffCount; i++) {
+    for (let i = 0; i < cloud.puffCount; i++) {
       const angle = (i / cloud.puffCount) * Math.PI * 1.6 - Math.PI * 0.8;
       const dist = cloud.width * 0.22 + Math.sin(i * 1.3) * cloud.width * 0.08;
       const px = cloud.x + Math.cos(angle) * dist;
@@ -193,8 +243,8 @@ export class CloudSystem {
       cloud.y + cloud.height * 0.8
     );
     bottomGradient.addColorStop(0, 'transparent');
-    bottomGradient.addColorStop(0.6, `rgba(${Math.round(180 * timeTint.r / 255)}, ${Math.round(180 * timeTint.g / 255)}, ${Math.round(220 * timeTint.b / 255)}, 0.15)`);
-    bottomGradient.addColorStop(1, `rgba(${Math.round(150 * timeTint.r / 255)}, ${Math.round(150 * timeTint.g / 255)}, ${Math.round(200 * timeTint.b / 255)}, 0.25)`);
+    bottomGradient.addColorStop(0.6, `rgba(${Math.round(180 * tr)}, ${Math.round(180 * tg)}, ${Math.round(220 * tb)}, 0.15)`);
+    bottomGradient.addColorStop(1, `rgba(${Math.round(150 * tr)}, ${Math.round(150 * tg)}, ${Math.round(200 * tb)}, 0.25)`);
 
     ctx.fillStyle = bottomGradient;
     ctx.beginPath();

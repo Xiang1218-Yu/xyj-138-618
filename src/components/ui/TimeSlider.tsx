@@ -13,9 +13,9 @@ interface TimeSliderProps {
   /** 当前时间值 0-100 */
   value: number;
   /** 时间变化回调 */
-  onChange: (value: number) =&gt; void;
+  onChange: (value: number) => void;
   /** 快捷时段点击回调 */
-  onTimeOfDaySelect: (timeOfDay: TimeOfDay) =&gt; void;
+  onTimeOfDaySelect: (timeOfDay: TimeOfDay) => void;
   /** 当前时段 */
   currentTimeOfDay: TimeOfDay;
 }
@@ -23,83 +23,83 @@ interface TimeSliderProps {
 /**
  * 时段图标映射
  */
-const TIME_ICONS: Record&lt;TimeOfDay, React.ReactNode&gt; = {
-  [TimeOfDay.Sunrise]: &lt;Sunrise className="w-4 h-4" /&gt;,
-  [TimeOfDay.Noon]: &lt;Sun className="w-4 h-4" /&gt;,
-  [TimeOfDay.Sunset]: &lt;Sunset className="w-4 h-4" /&gt;,
-  [TimeOfDay.Night]: &lt;Moon className="w-4 h-4" /&gt;,
+const TIME_ICONS: Record<TimeOfDay, React.ReactNode> = {
+  [TimeOfDay.Sunrise]: <Sunrise className="w-4 h-4" />,
+  [TimeOfDay.Noon]: <Sun className="w-4 h-4" />,
+  [TimeOfDay.Sunset]: <Sunset className="w-4 h-4" />,
+  [TimeOfDay.Night]: <Moon className="w-4 h-4" />,
 };
 
 /**
  * 时段对应渐变色
  */
-const TIME_GRADIENTS: Record&lt;TimeOfDay, string&gt; = {
+const TIME_GRADIENTS: Record<TimeOfDay, string> = {
   [TimeOfDay.Sunrise]: 'from-orange-400 to-pink-500',
   [TimeOfDay.Noon]: 'from-cyan-400 to-blue-500',
   [TimeOfDay.Sunset]: 'from-orange-500 to-purple-600',
   [TimeOfDay.Night]: 'from-indigo-600 to-purple-900',
 };
 
-export const TimeSlider: React.FC&lt;TimeSliderProps&gt; = ({
+export const TimeSlider: React.FC<TimeSliderProps> = ({
   value,
   onChange,
   onTimeOfDaySelect,
   currentTimeOfDay,
-}) =&gt; {
+}) => {
   const percentage = value;
 
   return (
-    &lt;div className="space-y-3"&gt;
-      &lt;div className="flex items-center justify-between"&gt;
-        &lt;span className="text-white/70 text-sm font-medium"&gt;时间&lt;/span&gt;
-        &lt;span className={`text-sm font-bold bg-gradient-to-r ${TIME_GRADIENTS[currentTimeOfDay]} bg-clip-text text-transparent`}&gt;
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-white/70 text-sm font-medium">时间</span>
+        <span className={`text-sm font-bold bg-gradient-to-r ${TIME_GRADIENTS[currentTimeOfDay]} bg-clip-text text-transparent`}>
           {getTimeOfDayLabel(currentTimeOfDay)}
-        &lt;/span&gt;
-      &lt;/div&gt;
+        </span>
+      </div>
 
-      &lt;div className="relative h-8"&gt;
-        &lt;div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-3 rounded-full overflow-hidden bg-gradient-to-r from-orange-400 via-cyan-400 via-orange-500 to-indigo-900"&gt;
-          &lt;div className="absolute inset-0 bg-white/10" /&gt;
-        &lt;/div&gt;
+      <div className="relative h-8">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-3 rounded-full overflow-hidden bg-gradient-to-r from-orange-400 via-cyan-400 via-orange-500 to-indigo-900">
+          <div className="absolute inset-0 bg-white/10" />
+        </div>
 
-        &lt;input
+        <input
           type="range"
           min={0}
           max={100}
           step={1}
           value={value}
-          onChange={(e) =&gt; onChange(Number(e.target.value))}
+          onChange={(e) => onChange(Number(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        /&gt;
+        />
 
-        &lt;div
+        <div
           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-lg shadow-black/30 pointer-events-none transition-all duration-100 flex items-center justify-center z-20"
           style={{ left: `${percentage}%` }}
-        &gt;
-          &lt;div className={`w-3 h-3 rounded-full bg-gradient-to-br ${TIME_GRADIENTS[currentTimeOfDay]}`} /&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
+        >
+          <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${TIME_GRADIENTS[currentTimeOfDay]}`} />
+        </div>
+      </div>
 
-      &lt;div className="flex justify-between"&gt;
-        {TIME_QUICK_POINTS.map((point) =&gt; (
-          &lt;button
+      <div className="flex justify-between">
+        {TIME_QUICK_POINTS.map((point) => (
+          <button
             key={point.time}
-            onClick={() =&gt; onTimeOfDaySelect(point.time)}
+            onClick={() => onTimeOfDaySelect(point.time)}
             className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 ${
               currentTimeOfDay === point.time
                 ? `bg-gradient-to-br ${TIME_GRADIENTS[point.time]} bg-opacity-20 scale-110`
                 : 'hover:bg-white/10'
             }`}
-          &gt;
-            &lt;span className={currentTimeOfDay === point.time ? 'text-white' : 'text-white/50'}&gt;
+          >
+            <span className={currentTimeOfDay === point.time ? 'text-white' : 'text-white/50'}>
               {TIME_ICONS[point.time]}
-            &lt;/span&gt;
-            &lt;span className={`text-xs ${currentTimeOfDay === point.time ? 'text-white font-medium' : 'text-white/50'}`}&gt;
+            </span>
+            <span className={`text-xs ${currentTimeOfDay === point.time ? 'text-white font-medium' : 'text-white/50'}`}>
               {point.label}
-            &lt;/span&gt;
-          &lt;/button&gt;
+            </span>
+          </button>
         ))}
-      &lt;/div&gt;
-    &lt;/div&gt;
+      </div>
+    </div>
   );
 };

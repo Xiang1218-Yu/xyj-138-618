@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface SliderProps {
   value: number;
-  onChange: (value: number) =&gt; void;
+  onChange: (value: number) => void;
   min?: number;
   max?: number;
   step?: number;

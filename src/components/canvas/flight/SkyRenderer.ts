@@ -41,7 +41,7 @@ export class SkyRenderer {
   private generateStars(): void {
     this.stars = [];
     const starCount = 120;
-    for (let i = 0; i &lt; starCount; i++) {
+    for (let i = 0; i < starCount; i++) {
       this.stars.push({
         x: (i * 137.5) % this.width,
         y: (i * 73.7) % (this.height * 0.5),
@@ -153,7 +153,7 @@ export class SkyRenderer {
     ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    if (this.timeValue &gt; 75) {
+    if (this.timeValue > 75) {
       ctx.fillStyle = 'rgba(200, 200, 220, 0.3)';
       ctx.beginPath();
       ctx.arc(sunX - sunRadius * 0.3, sunY - sunRadius * 0.1, sunRadius * 0.15, 0, Math.PI * 2);
@@ -175,7 +175,7 @@ export class SkyRenderer {
     colors: SkyColors,
     time: number
   ): void {
-    for (let i = 0; i &lt; this.stars.length; i++) {
+    for (let i = 0; i < this.stars.length; i++) {
       const star = this.stars[i];
       const twinkle = 0.5 + 0.5 * Math.sin(time * 0.0015 + star.phase);
       const brightness = colors.starBrightness * (0.3 + twinkle * 0.7);
