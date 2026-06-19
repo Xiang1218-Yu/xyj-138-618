@@ -1,0 +1,109 @@
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import Home from '@/pages/Home';
+import Garden from '@/pages/Garden';
+import Fluid from '@/pages/Fluid';
+import Flight from '@/pages/Flight';
+import Kaleidoscope from '@/pages/Kaleidoscope';
+import Fireworks from '@/pages/Fireworks';
+import Pinball from '@/pages/Pinball';
+import About from '@/pages/About';
+import NotFound from '@/pages/NotFound';
+import { Navbar } from '@/components/layout/Navbar';
+import { CustomCursor } from '@/components/layout/CustomCursor';
+import { PageTransition } from '@/components/layout/PageTransition';
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route
+          path="/"
+          element={
+            <PageTransition>
+              <Home />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/garden"
+          element={
+            <PageTransition>
+              <Garden />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/fluid"
+          element={
+            <PageTransition>
+              <Fluid />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/flight"
+          element={
+            <PageTransition>
+              <Flight />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/kaleidoscope"
+          element={
+            <PageTransition>
+              <Kaleidoscope />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/fireworks"
+          element={
+            <PageTransition>
+              <Fireworks />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/pinball"
+          element={
+            <PageTransition>
+              <Pinball />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/about"
+          element={
+            <PageTransition>
+              <About />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <PageTransition>
+              <NotFound />
+            </PageTransition>
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+export default function App() {
+  return (
+    <Router>
+      <div className="w-full min-h-screen relative">
+        <CustomCursor />
+        <Navbar />
+        <AnimatedRoutes />
+      </div>
+    </Router>
+  );
+}
