@@ -2,9 +2,14 @@ import React from 'react';
 import { FlightSimulator } from '@/components/canvas/FlightSimulator';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
+import { EnvironmentControls } from '@/components/canvas/flight/EnvironmentControls';
 import { useAppStore } from '@/store/useAppStore';
 import { Plane, RotateCcw, Info, Fuel, Gauge, Mountain } from 'lucide-react';
 
+/**
+ * Flight - 飞行场景页面
+ * 单一职责：组装飞行模拟器组件和各类控制面板
+ */
 const Flight: React.FC = () => {
   const {
     flight: { aircraft },
@@ -94,6 +99,10 @@ const Flight: React.FC = () => {
       </div>
 
       <div className="absolute top-24 right-6 z-20">
+        <EnvironmentControls />
+      </div>
+
+      <div className="absolute bottom-28 right-6 z-20">
         <GlassCard className="p-4 w-64">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
@@ -104,7 +113,7 @@ const Flight: React.FC = () => {
               <p>• 移动鼠标控制方向</p>
               <p>• 按住左键加速起飞</p>
               <p>• 松开减速，自动回油</p>
-              <p>• 燃料耗尽需等待恢复</p>
+              <p>• 右侧面板调整环境</p>
             </div>
           </div>
         </GlassCard>
