@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Flower, Particle, StarParticle, Stem } from '../types/flower';
-import { Aircraft, Cloud, Mountain, ThrustParticle } from '../types/flight';
+import { Aircraft, Cloud, Mountain, ThrustParticle, EnvironmentSettings } from '../types/flight';
 import { FluidParticle, FluidState, defaultFluidState } from '../types/fluid';
 import {
   KaleidoscopeState,
@@ -81,6 +81,8 @@ interface AppState {
   setIsMouseDown: (value: boolean) => void;
   addThrustParticle: (particle: ThrustParticle) => void;
   resetFlight: () => void;
+  updateEnvironment: (updates: Partial<EnvironmentSettings>) => void;
+  resetEnvironment: () => void;
 
   addFluidParticle: (particle: FluidParticle) => void;
   updateFluidParticle: (id: string, updates: Partial<FluidParticle>) => void;
@@ -180,6 +182,19 @@ const initialAircraft: Aircraft = {
   isThrusting: false,
 };
 
+/**
+ * 默认环境设置
+ */
+const defaultEnvironmentSettings: EnvironmentSettings = {
+  timeOfDay: 50,
+  cloudDensity: 60,
+  cloudAltitude: 0,
+  mountainHeight: 50,
+  fogDensity: 20,
+  starVisibility: 80,
+  windStrength: 30,
+};
+
 export const useAppStore = create<AppState>((set) => ({
   isTransitioning: false,
   mouseX: 0,
@@ -203,6 +218,7 @@ export const useAppStore = create<AppState>((set) => ({
     clouds: [],
     mountains: [],
     thrustParticles: [],
+    environment: { ...defaultEnvironmentSettings },
     isMouseDown: false,
   },
 
@@ -346,6 +362,28 @@ export const useAppStore = create<AppState>((set) => ({
         ...state.flight,
         aircraft: { ...initialAircraft },
         thrustParticles: [],
+      },
+    })),
+
+  /**
+   * 更新环境设置
+   */
+  updateEnvironment: (updates) =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...state.flight.environment, ...updates },
+      },
+    })),
+
+  /**
+   * 重置环境设置为默认值
+   */
+  resetEnvironment: () =>
+    set((state) => ({
+      flight: {
+        ...state.flight,
+        environment: { ...defaultEnvironmentSettings },
       },
     })),
 
