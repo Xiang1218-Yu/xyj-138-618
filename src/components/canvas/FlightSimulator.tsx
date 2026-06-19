@@ -523,7 +523,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({
 
       SkyRenderer.render(ctx, width, height, timestamp, environment);
 
-      mountainRendererRef.current.update(deltaTime, width, height, aircraftRef.current.speed, environment);
+      mountainRendererRef.current.update(deltaTime, width, height, environment);
       mountainRendererRef.current.render(ctx, width, height, environment);
 
       cloudRendererRef.current.update(deltaTime, width, height, environment);

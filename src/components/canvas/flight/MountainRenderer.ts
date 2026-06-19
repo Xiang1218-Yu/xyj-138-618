@@ -29,11 +29,11 @@ export class MountainRenderer {
     for (let i = 0; i < this.mountainCount; i++) {
       const baseHeight = randomRange(height * 0.2, height * 0.5) * heightMultiplier;
       this.mountains.push({
-        x: (i / this.mountainCount) * width * 2 - width * 0.3,
+        x: (i / this.mountainCount) * width * 1.8,
         height: baseHeight,
-        width: randomRange(width * 0.3, width * 0.8),
-        color: `hsl(${220 + i * 5}, 20%, ${10 + i * 3}%)`,
-        parallaxSpeed: 8 + i * 10,
+        width: randomRange(width * 0.35, width * 0.9),
+        color: `hsl(${225 + i * 4}, 25%, ${12 + i * 4}%)`,
+        parallaxSpeed: 15 + i * 12,
       });
     }
     this.lastHeight = env.mountainHeight;
@@ -44,14 +44,12 @@ export class MountainRenderer {
    * @param deltaTime 帧间隔时间
    * @param width 画布宽度
    * @param height 画布高度
-   * @param speed 飞行速度
    * @param env 环境设置
    */
   update(
     deltaTime: number,
     width: number,
     height: number,
-    speed: number,
     env: EnvironmentSettings
   ): void {
     if (env.mountainHeight !== this.lastHeight) {
@@ -63,7 +61,7 @@ export class MountainRenderer {
       this.lastHeight = env.mountainHeight;
     }
 
-    this.offset += speed * 80 * deltaTime;
+    this.offset += deltaTime * 15;
   }
 
   /**
@@ -97,8 +95,8 @@ export class MountainRenderer {
     height: number,
     tintColor: string
   ): void {
-    const x = ((mountain.x - this.offset * mountain.parallaxSpeed * 0.005) % (width * 2.5)) - width * 0.3;
-    const adjustedX = x;
+    const x = (mountain.x - this.offset * mountain.parallaxSpeed * 0.01) % (width * 2);
+    const adjustedX = x < -mountain.width ? x + width * 2 : x;
 
     ctx.save();
 

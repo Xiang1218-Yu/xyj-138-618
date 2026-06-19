@@ -102,7 +102,7 @@ const Flight: React.FC = () => {
         <EnvironmentControls />
       </div>
 
-      <div className="absolute bottom-28 right-6 z-20">
+      <div className="absolute bottom-28 left-6 z-20">
         <GlassCard className="p-4 w-64">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
