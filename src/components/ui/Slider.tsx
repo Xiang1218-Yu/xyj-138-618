@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface SliderProps {
@@ -7,7 +7,7 @@ interface SliderProps {
   min?: number;
   max?: number;
   step?: number;
-  label?: string;
+  label?: string | ReactNode;
   className?: string;
   showValue?: boolean;
   unit?: string;

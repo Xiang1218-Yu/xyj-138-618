@@ -1,7 +1,14 @@
+/**
+ * 飞行场景页面
+ * 职责：整合飞行模拟器和环境控制面板，作为场景入口
+ * 单一职责：仅负责页面布局和组件组装，业务逻辑委托给子组件
+ */
+
 import React from 'react';
 import { FlightSimulator } from '@/components/canvas/FlightSimulator';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
+import { EnvironmentControlPanel } from '@/components/canvas/flight/EnvironmentControlPanel';
 import { useAppStore } from '@/store/useAppStore';
 import { Plane, RotateCcw, Info, Fuel, Gauge, Mountain } from 'lucide-react';
 
@@ -15,7 +22,7 @@ const Flight: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden">
       <FlightSimulator />
 
-      <div className="absolute top-24 left-6 z-20">
+      <div className="absolute top-24 left-6 z-20 space-y-4">
         <GlassCard className="p-5 w-72" glow>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
@@ -93,8 +100,10 @@ const Flight: React.FC = () => {
         </GlassCard>
       </div>
 
-      <div className="absolute top-24 right-6 z-20">
-        <GlassCard className="p-4 w-64">
+      <div className="absolute top-24 right-6 z-20 space-y-4">
+        <EnvironmentControlPanel />
+
+        <GlassCard className="p-4 w-72">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-white/70 space-y-1">
@@ -103,8 +112,8 @@ const Flight: React.FC = () => {
               </p>
               <p>• 移动鼠标控制方向</p>
               <p>• 按住左键加速起飞</p>
-              <p>• 松开减速，自动回油</p>
-              <p>• 燃料耗尽需等待恢复</p>
+              <p>• 使用右侧面板自定义环境</p>
+              <p>• 拖动时间滑块切换时段</p>
             </div>
           </div>
         </GlassCard>
